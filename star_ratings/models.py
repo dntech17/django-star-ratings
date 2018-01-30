@@ -15,6 +15,16 @@ from model_utils.models import TimeStampedModel
 
 from . import app_settings, get_star_ratings_rating_model_name, get_star_ratings_rating_model
 
+#FlightSuggestion = models.get_model("travel_details", "FlightSuggestion")
+#Mission = models.get_model("travel_details", "Mission")
+#Solution 1
+#import sys
+#sys.path.append('/Users/mac/Desktop/project/django/Biyassi/travel_details')
+#import models as travel_details_model
+#travel_details.models import FlightSuggestion, Mission
+#FlightSuggestion = travel_details_model.FlightSuggestion
+#Mission  = travel_details_model.Mission
+from travel_details.models import FlightSuggestion, Mission
 
 def _clean_user(user):
     if not app_settings.STAR_RATINGS_ANONYMOUS:
@@ -43,16 +53,21 @@ class RatingManager(models.Manager):
 
         user = _clean_user(user)
         existing_rating = UserRating.objects.for_instance_by_user(instance, user)
-
-        if existing_rating:
-            if not app_settings.STAR_RATINGS_RERATE:
-                raise ValidationError(_('Already rated.'))
-            existing_rating.score = score
-            existing_rating.save()
-            return existing_rating.rating
+        is_score_used = UserRating.objects.is_score_used(instance, score)
+        
+        if is_score_used != True:
+            if existing_rating:
+                if not app_settings.STAR_RATINGS_RERATE:
+                    raise ValidationError(_('Already rated.'))
+                existing_rating.score = score
+                existing_rating.save()
+                return existing_rating.rating
+            else:
+                rating, created = self.get_or_create(content_type=ct, object_id=instance.pk)
+                return UserRating.objects.create(user=user, score=score, rating=rating, ip=ip).rating
         else:
-            rating, created = self.get_or_create(content_type=ct, object_id=instance.pk)
-            return UserRating.objects.create(user=user, score=score, rating=rating, ip=ip).rating
+            warn(_('This value is already used'))
+
 
 
 @python_2_unicode_compatible
@@ -99,7 +114,6 @@ class AbstractBaseRating(models.Model):
         self.average = aggregates.get('average') or 0.0
         self.save()
 
-
 class Rating(AbstractBaseRating):
     class Meta(AbstractBaseRating.Meta):
         swappable = swapper.swappable_setting('star_ratings', 'Rating')
@@ -126,7 +140,18 @@ class UserRatingManager(models.Manager):
         for rating in set(o.rating for o in objs):
             rating.calculate()
         return objs
-
+    
+    def is_score_used(self, instance, score):
+        # we get the mission and all it's flight submissions
+        mission = FlightSuggestion.objects.get(pk=instance.pk).mission
+        flights = FlightSuggestion.objects.filter(mission = mission)
+        
+        for f in flights:
+            all_ratings = UserRating.objects.filter(rating__object_id=f.id)
+            for r in all_ratings:
+                if int(r.score) == int(score):
+                    return True
+        return False
 
 @python_2_unicode_compatible
 class UserRating(TimeStampedModel):
