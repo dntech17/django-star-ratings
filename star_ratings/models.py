@@ -14,16 +14,6 @@ from django.utils.translation import ugettext as _
 from model_utils.models import TimeStampedModel
 
 from . import app_settings, get_star_ratings_rating_model_name, get_star_ratings_rating_model
-
-#FlightSuggestion = models.get_model("travel_details", "FlightSuggestion")
-#Mission = models.get_model("travel_details", "Mission")
-#Solution 1
-#import sys
-#sys.path.append('/Users/mac/Desktop/project/django/Biyassi/travel_details')
-#import models as travel_details_model
-#travel_details.models import FlightSuggestion, Mission
-#FlightSuggestion = travel_details_model.FlightSuggestion
-#Mission  = travel_details_model.Mission
 from travel_details.models import FlightSuggestion, Mission
 
 def _clean_user(user):
